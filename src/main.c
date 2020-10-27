@@ -10,6 +10,7 @@
 #include "nvs_flash.h"
 #include "string.h"
 #include <sys/param.h>
+#include "math.h"
 
 #define BOARD_ESP32CAM_AITHINKER
 
@@ -62,7 +63,7 @@ static camera_config_t camera_config = {
     .pixel_format = PIXFORMAT_JPEG, //YUV422,GRAYSCALE,RGB565,JPEG
     .frame_size = FRAMESIZE_QQVGA,    //QQVGA-UXGA Do not use sizes above QVGA when not JPEG
 
-    .jpeg_quality = 20, //0-63 lower number means higher quality
+    .jpeg_quality = 18, //0-63 lower number means higher quality
     .fb_count = 1       //if more than one, i2s runs in continuous mode. Use only with JPEG
 };
 
@@ -94,13 +95,16 @@ uint8_t beacon_raw[] = {
 	0x00, 0x00, /* FILL CONTENT HERE */				// 36-38: SSID parameter set, 0x00:length:content
 	0x01, 0x08, 0x82, 0x84,	0x8b, 0x96, 0x0c, 0x12, 0x18, 0x24,	// 39-48: Supported rates
 	0x03, 0x01, 0x01,						// 49-51: DS Parameter set, current channel 1 (= 0x01),
-	0x05, 0x04, 0x01, 0x02, 0x00, 0x00,				// 52-57: Traffic Indication Map
+	0x05, 0x04, 0x01, 0x02, 0xDD, 0x00,				// 52-57: Traffic Indication Map
 };
 
 #define BEACON_SSID_OFFSET 38
 #define SRCADDR_OFFSET 10
 #define BSSID_OFFSET 16
 #define SEQNUM_OFFSET 22
+
+// Length of camera buffer to get
+#define CAMERA_BUFF_LEN 256
 
 esp_err_t event_handler(void *ctx, system_event_t *event) {
 	return ESP_OK;
@@ -112,28 +116,37 @@ void spam_task(void *pvParameter) {
 	for (;;) {
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 
-        camera_fb_t *pic = esp_camera_fb_get();
+		camera_fb_t *pic = esp_camera_fb_get();
 
         ESP_LOGI(TAG, "Picture taken! Its size was: %zu bytes", pic->len);
 
-		//printf("%i %s\r\n", strlen(raw_data), raw_data);
+		seqnum = 0;
 
-		uint16_t length = 256;
+		uint8_t num = ceil(pic->len / 256) + 1;
 
-		uint8_t new_beacon[sizeof(beacon_raw) + length];
-		memcpy(new_beacon, beacon_raw, BEACON_SSID_OFFSET - 1);
-		new_beacon[BEACON_SSID_OFFSET - 1] = length;//pic->len;
-		memcpy(&new_beacon[BEACON_SSID_OFFSET], pic->buf , length);
-		memcpy(&new_beacon[BEACON_SSID_OFFSET + length], &beacon_raw[BEACON_SSID_OFFSET], sizeof(beacon_raw) - BEACON_SSID_OFFSET);
+		for (int i = 0; i <= num; i++) {
+			// Create the 802.11 frame
+			uint8_t new_beacon[sizeof(beacon_raw) + CAMERA_BUFF_LEN];
+			
+			// Copy the header defined above (beacon_raw) into the start of our frame
+			memcpy(new_beacon, beacon_raw, BEACON_SSID_OFFSET - 1);
+			// Set the length of the "SSID" to be the length of our camera data
+			//new_beacon[BEACON_SSID_OFFSET - 1] = CAMERA_BUFF_LEN;//pic->len;
+			// Copy some of the camera data into the frame
+			memcpy(&new_beacon[BEACON_SSID_OFFSET], pic->buf + CAMERA_BUFF_LEN * i, CAMERA_BUFF_LEN);
+			// Append the end of the raw frame to our frame, this defines some beacon parameters
+			memcpy(&new_beacon[BEACON_SSID_OFFSET + CAMERA_BUFF_LEN], &beacon_raw[BEACON_SSID_OFFSET], sizeof(beacon_raw) - BEACON_SSID_OFFSET);
+			// Store number of packets that this camera frame has been sent over, and also the size of each chunk of camera data
+			new_beacon[sizeof(new_beacon) - 2] = num;
+			new_beacon[sizeof(new_beacon) - 1] = CAMERA_BUFF_LEN;
 
-		// Update sequence number
-		new_beacon[SEQNUM_OFFSET] = (seqnum & 0x0f) << 4;
-		new_beacon[SEQNUM_OFFSET + 1] = (seqnum & 0xff0) >> 4;
-		seqnum++;
-		if (seqnum > 0xfff)
-			seqnum = 0;
+			// Update sequence number with current index of packet
+			new_beacon[SEQNUM_OFFSET] = (seqnum & 0x0f) << 4;
+			new_beacon[SEQNUM_OFFSET + 1] = (seqnum & 0xff0) >> 4;
+			seqnum++;
 
-		esp_wifi_80211_tx(WIFI_IF_AP, new_beacon, sizeof(beacon_raw) + length, false);
+			esp_wifi_80211_tx(WIFI_IF_AP, new_beacon, sizeof(new_beacon), false);
+		}
 	}
 }
 
