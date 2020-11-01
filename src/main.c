@@ -106,6 +106,8 @@ uint8_t beacon_raw[] = {
 // Length of camera buffer to get
 #define CAMERA_BUFF_LEN 256
 
+#define RETRY_COUNT 5
+
 esp_err_t event_handler(void *ctx, system_event_t *event) {
 	return ESP_OK;
 }
@@ -124,28 +126,31 @@ void spam_task(void *pvParameter) {
 
 		uint8_t num = ceil(pic->len / 256) + 1;
 
-		for (int i = 0; i <= num; i++) {
-			// Create the 802.11 frame
-			uint8_t new_beacon[sizeof(beacon_raw) + CAMERA_BUFF_LEN];
-			
-			// Copy the header defined above (beacon_raw) into the start of our frame
-			memcpy(new_beacon, beacon_raw, BEACON_SSID_OFFSET - 1);
-			// Set the length of the "SSID" to be the length of our camera data
-			//new_beacon[BEACON_SSID_OFFSET - 1] = CAMERA_BUFF_LEN;//pic->len;
-			// Copy some of the camera data into the frame
-			memcpy(&new_beacon[BEACON_SSID_OFFSET], pic->buf + CAMERA_BUFF_LEN * i, CAMERA_BUFF_LEN);
-			// Append the end of the raw frame to our frame, this defines some beacon parameters
-			memcpy(&new_beacon[BEACON_SSID_OFFSET + CAMERA_BUFF_LEN], &beacon_raw[BEACON_SSID_OFFSET], sizeof(beacon_raw) - BEACON_SSID_OFFSET);
-			// Store number of packets that this camera frame has been sent over, and also the size of each chunk of camera data
-			new_beacon[sizeof(new_beacon) - 2] = num;
-			new_beacon[sizeof(new_beacon) - 1] = CAMERA_BUFF_LEN;
+		// send every packet RETRY_COUNT times
+		for (int t = 0; t < RETRY_COUNT; t++) {
+			// Split image up into `num` packets
+			for (int i = 0; i <= num; i++) {
+				// Create the 802.11 frame
+				uint8_t new_beacon[sizeof(beacon_raw) + CAMERA_BUFF_LEN];
+				// Copy the header defined above (beacon_raw) into the start of our frame
+				memcpy(new_beacon, beacon_raw, BEACON_SSID_OFFSET - 1);
+				// Set the length of the "SSID" to be the length of our camera data
+				//new_beacon[BEACON_SSID_OFFSET - 1] = CAMERA_BUFF_LEN;//pic->len;
+				// Copy some of the camera data into the frame
+				memcpy(&new_beacon[BEACON_SSID_OFFSET], pic->buf + CAMERA_BUFF_LEN * i, CAMERA_BUFF_LEN);
+				// Append the end of the raw frame to our frame, this defines some beacon parameters
+				memcpy(&new_beacon[BEACON_SSID_OFFSET + CAMERA_BUFF_LEN], &beacon_raw[BEACON_SSID_OFFSET], sizeof(beacon_raw) - BEACON_SSID_OFFSET);
+				// Store number of packets that this camera frame has been sent over, and also the size of each chunk of camera data
+				new_beacon[sizeof(new_beacon) - 2] = num;
+				new_beacon[sizeof(new_beacon) - 1] = CAMERA_BUFF_LEN;
 
-			// Update sequence number with current index of packet
-			new_beacon[SEQNUM_OFFSET] = (seqnum & 0x0f) << 4;
-			new_beacon[SEQNUM_OFFSET + 1] = (seqnum & 0xff0) >> 4;
-			seqnum++;
+				// Update sequence number with current index of packet
+				new_beacon[SEQNUM_OFFSET] = (seqnum & 0x0f) << 4;
+				new_beacon[SEQNUM_OFFSET + 1] = (seqnum & 0xff0) >> 4;
+				seqnum++;
 
-			esp_wifi_80211_tx(WIFI_IF_AP, new_beacon, sizeof(new_beacon), false);
+				esp_wifi_80211_tx(WIFI_IF_AP, new_beacon, sizeof(new_beacon), false);
+			}
 		}
 	}
 }
