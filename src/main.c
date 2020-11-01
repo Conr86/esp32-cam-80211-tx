@@ -122,14 +122,14 @@ void spam_task(void *pvParameter) {
 
         ESP_LOGI(TAG, "Picture taken! Its size was: %zu bytes", pic->len);
 
-		seqnum = 0;
-
-		uint8_t num = ceil(pic->len / 256) + 1;
+		uint8_t num_packets = ceil(pic->len / 256) + 1;
 
 		// send every packet RETRY_COUNT times
 		for (int t = 0; t < RETRY_COUNT; t++) {
+			uint16_t uid = esp_random();
+			seqnum = 0;
 			// Split image up into `num` packets
-			for (int i = 0; i <= num; i++) {
+			for (int i = 0; i <= num_packets; i++) {
 				// Create the 802.11 frame
 				uint8_t new_beacon[sizeof(beacon_raw) + CAMERA_BUFF_LEN];
 				// Copy the header defined above (beacon_raw) into the start of our frame
@@ -140,9 +140,9 @@ void spam_task(void *pvParameter) {
 				memcpy(&new_beacon[BEACON_SSID_OFFSET], pic->buf + CAMERA_BUFF_LEN * i, CAMERA_BUFF_LEN);
 				// Append the end of the raw frame to our frame, this defines some beacon parameters
 				memcpy(&new_beacon[BEACON_SSID_OFFSET + CAMERA_BUFF_LEN], &beacon_raw[BEACON_SSID_OFFSET], sizeof(beacon_raw) - BEACON_SSID_OFFSET);
-				// Store number of packets that this camera frame has been sent over, and also the size of each chunk of camera data
-				new_beacon[sizeof(new_beacon) - 2] = num;
-				new_beacon[sizeof(new_beacon) - 1] = CAMERA_BUFF_LEN;
+				// Store number of packets that this camera frame has been sent over, and also the frame uid
+				new_beacon[sizeof(new_beacon) - 2] = num_packets;
+				new_beacon[sizeof(new_beacon) - 1] = uid;
 
 				// Update sequence number with current index of packet
 				new_beacon[SEQNUM_OFFSET] = (seqnum & 0x0f) << 4;
