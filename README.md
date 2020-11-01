@@ -9,7 +9,7 @@ The issue is, the standard IEEE 802.11 protocol (and by extension WiFi) doesn't 
 
 However, in the same way that your router sends out unidirectional data in the form of SSID broadcasts, so can we... if we're willing to use a somewhat unofficial function in the ESP32's API. 
 
-The idea behind this, and the code to do some came from [a video](https://www.youtube.com/watch?v=tBfa4yk5TdU) and [repository](https://github.com/Jeija/esp32-80211-tx) published by [@Jeija](https://github.com/Jeija/).
+The idea behind this, and the code to do so, came from [a video](https://www.youtube.com/watch?v=tBfa4yk5TdU) and [repository](https://github.com/Jeija/esp32-80211-tx) published by [@Jeija](https://github.com/Jeija/). At this stage, it doesn't work anywhere near as well as his. Still working out why that is, I've got a bit to learn here.
 
 ## Project Description
 This software broadcasts the ESP32-CAM's camera framebuffer as a JPEG (JFIF) buffer. This is achieved by capturing the framebuffer of the camera, splitting it up into several packets, manually assembling IEEE 802.11 beacon frames in `main.c`, with each camera frame packet, and finally broadcasting them via the currently unofficial `esp_wifi_80211_tx` API in Espressif's [esp32-wifi-lib](https://github.com/espressif/esp32-wifi-lib).
