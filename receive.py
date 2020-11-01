@@ -1,13 +1,5 @@
 #!/usr/bin/python
-import http.server
-import socketserver
-from os import curdir, sep
 from scapy.all import *
-from PIL import Image, ImageTk
-from io import BytesIO
-import io
-import threading
-import tkinter as tk 
 
 last_image = b''
 
@@ -15,7 +7,6 @@ data = {}
 
 def PacketHandler(pkt):
     global data
-    global mage
     if (pkt.addr2 == "b0:0b:b0:0b:b0:0b"):
         sn = pkt.SC // 16
         total = raw(pkt)[347]
@@ -39,7 +30,6 @@ def PacketHandler(pkt):
                 f = open('test.jpg', 'wb')
                 f.write(image)
                 f.close()
-                last_image = image
                 data[uid] = [0] * len(data[uid])
 
 sniff(iface="wlan1mon", prn=PacketHandler)
