@@ -113,23 +113,21 @@ esp_err_t event_handler(void *ctx, system_event_t *event) {
 }
 
 void spam_task(void *pvParameter) {
-    uint16_t seqnum = 0;
+    uint16_t uid = 0;
 
 	for (;;) {
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
+		vTaskDelay(100 / portTICK_PERIOD_MS);
 
 		camera_fb_t *pic = esp_camera_fb_get();
-		uint16_t uid = esp_random();
-
+	
         ESP_LOGI(TAG, "Picture taken! Its size was: %zu bytes", pic->len);
 
 		uint8_t num_packets = ceil(pic->len / 256) + 1;
 
 		// send every packet RETRY_COUNT times
-		for (int t = 0; t < RETRY_COUNT; t++) {
-			seqnum = 0;
+		for (uint16_t t = 0; t < RETRY_COUNT; t++) {
 			// Split image up into `num` packets
-			for (int i = 0; i <= num_packets; i++) {
+			for (uint16_t seqnum = 0; seqnum <= num_packets; seqnum++) {
 				// Create the 802.11 frame
 				uint8_t new_beacon[sizeof(beacon_raw) + CAMERA_BUFF_LEN];
 				// Copy the header defined above (beacon_raw) into the start of our frame
@@ -137,22 +135,23 @@ void spam_task(void *pvParameter) {
 				// Set the length of the "SSID" to be the length of our camera data
 				//new_beacon[BEACON_SSID_OFFSET - 1] = CAMERA_BUFF_LEN;//pic->len;
 				// Copy some of the camera data into the frame
-				memcpy(&new_beacon[BEACON_SSID_OFFSET], pic->buf + CAMERA_BUFF_LEN * i, CAMERA_BUFF_LEN);
+				memcpy(&new_beacon[BEACON_SSID_OFFSET], pic->buf + CAMERA_BUFF_LEN * seqnum, CAMERA_BUFF_LEN);
 				// Append the end of the raw frame to our frame, this defines some beacon parameters
 				memcpy(&new_beacon[BEACON_SSID_OFFSET + CAMERA_BUFF_LEN], &beacon_raw[BEACON_SSID_OFFSET], sizeof(beacon_raw) - BEACON_SSID_OFFSET);
 				// Store number of packets that this camera frame has been sent over, and also the frame uid
 				new_beacon[sizeof(new_beacon) - 2] = num_packets;
 				new_beacon[sizeof(new_beacon) - 1] = uid;
-
 				// Update sequence number with current index of packet
 				new_beacon[SEQNUM_OFFSET] = (seqnum & 0x0f) << 4;
 				new_beacon[SEQNUM_OFFSET + 1] = (seqnum & 0xff0) >> 4;
-				seqnum++;
-
+				// Send the data
 				esp_wifi_80211_tx(WIFI_IF_AP, new_beacon, sizeof(new_beacon), false);
+
+				vTaskDelay(10 / portTICK_PERIOD_MS);
 			}
-			vTaskDelay(100 / portTICK_PERIOD_MS);
+			vTaskDelay(10 / portTICK_PERIOD_MS);
 		}
+		uid++;
 	}
 }
 
