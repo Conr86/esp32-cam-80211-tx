@@ -106,7 +106,7 @@ uint8_t beacon_raw[] = {
 // Length of camera buffer to get
 #define CAMERA_BUFF_LEN 256
 
-#define RETRY_COUNT 5
+#define RETRY_COUNT 100
 
 esp_err_t event_handler(void *ctx, system_event_t *event) {
 	return ESP_OK;
@@ -119,6 +119,7 @@ void spam_task(void *pvParameter) {
 		vTaskDelay(1000 / portTICK_PERIOD_MS);
 
 		camera_fb_t *pic = esp_camera_fb_get();
+		uint16_t uid = esp_random();
 
         ESP_LOGI(TAG, "Picture taken! Its size was: %zu bytes", pic->len);
 
@@ -126,7 +127,6 @@ void spam_task(void *pvParameter) {
 
 		// send every packet RETRY_COUNT times
 		for (int t = 0; t < RETRY_COUNT; t++) {
-			uint16_t uid = esp_random();
 			seqnum = 0;
 			// Split image up into `num` packets
 			for (int i = 0; i <= num_packets; i++) {
@@ -151,6 +151,7 @@ void spam_task(void *pvParameter) {
 
 				esp_wifi_80211_tx(WIFI_IF_AP, new_beacon, sizeof(new_beacon), false);
 			}
+			vTaskDelay(100 / portTICK_PERIOD_MS);
 		}
 	}
 }
