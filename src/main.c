@@ -105,16 +105,16 @@ uint8_t beacon_raw[] = {
 
 // Length of camera buffer to get
 #define CAMERA_BUFF_LEN 256
-
+// How many times should we send each camera frame
 #define RETRY_COUNT 100
 
 esp_err_t event_handler(void *ctx, system_event_t *event) {
 	return ESP_OK;
 }
 
-void spam_task(void *pvParameter) {
+void send_frame(void *pvParameter) {
     uint16_t uid = 0;
-
+	//for (uint16_t uid = 0;; uid++) {
 	for (;;) {
 		vTaskDelay(100 / portTICK_PERIOD_MS);
 
@@ -186,5 +186,5 @@ void app_main(void) {
 	ESP_ERROR_CHECK(esp_wifi_start());
 	ESP_ERROR_CHECK(esp_wifi_set_ps(WIFI_PS_NONE));
 
-	xTaskCreate(&spam_task, "spam_task", 2048, NULL, 5, NULL);
+	xTaskCreate(&send_frame, "send_frame", 2048, NULL, 5, NULL);
 }
