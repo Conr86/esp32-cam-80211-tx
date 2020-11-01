@@ -17,9 +17,13 @@ This software broadcasts the ESP32-CAM's camera framebuffer as a JPEG (JFIF) buf
 As far as I know, you need a WiFi card that supports monitor mode on the receiving end, in order to sniff these packets. Once in monitor mode, we can receive the frames using `receive.py`, which will reassemble the packets and save it as a JPG file.
 
 ### Compile / Flash
-This project uses the [Espressif IoT Development Framework](https://github.com/espressif/esp-idf) and PlatformIO.
+This project uses the [Espressif IoT Development Framework](https://github.com/espressif/esp-idf). I used PlatformIO to upload and monitor the code.
 
-To setup the receiving end, you will need `python3-imaging` installed, and a wireless adaptor that supports monitor mode (I used an Alfa AWUS036NHA). The code to do this is pretty simple, it just does a live scan of beacon frames, filters by MAC address (which is software-defined in `main.c`) and then tries to reassemble the frames, and if successful, saves it as `test.jpg`.
+To setup the receiving end, you will need `python3-imaging` installed, and a wireless adaptor that supports monitor mode (I used an Alfa AWUS036NHA). 
+
+You'll need to put your card in monitor mode, and adjust `wlan1mon` in `receive.py` to be your relevant interface name.
+
+The code to do this is pretty simple, it just does a live scan of beacon frames, filters by MAC address (which is software-defined in `main.c`) and then tries to reassemble the frames, and if successful, saves it as `test.jpg`.
 
 ## Project License: MIT
 ```

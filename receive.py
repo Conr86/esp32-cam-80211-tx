@@ -20,7 +20,7 @@ def PacketHandler(pkt):
         sn = pkt.SC // 16
         total = raw(pkt)[347]
         uid = raw(pkt)[348]
-        print("Batch", uid, "Number", sn, "of", total) 
+        print("Snapshot", uid, "Packet", sn, "of", total) 
 
         if uid not in data:
             data[uid] = [0] * (total + 1)
